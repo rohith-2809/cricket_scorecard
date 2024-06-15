@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cricket Score Simulator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            width: 150px;
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .team-score {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .innings-switch {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .innings-switch button {
+            background-color: #008CBA;
+        }
+        .innings-switch button:hover {
+            background-color: #005f6b;
+        }
+        .charts {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        .charts canvas {
+            max-width: 45%;
+        }
+        .stats {
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        .stats th, .stats td {
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cricket Score Simulator</h1>
+        <div class="team-inputs">
+            <label for="battingTeam">Batting Team:</label>
+            <input type="text" id="battingTeam">
+            <label for="fieldingTeam">Fielding Team:</label>
+            <input type="text" id="fieldingTeam">
+        </div>
+        <div class="batsman-inputs">
+            <label for="batsmanName">Batsman Name:</label>
+            <input type="text" id="batsmanName">
+            <label for="batsmanRuns">Runs by Batsman:</label>
+            <input type="number" id="batsmanRuns" min="0">
+            <label for="ballsFaced">Balls Faced:</label>
+            <input type="number" id="ballsFaced" min="0">
+            <button onclick="addBatsman()">Add Batsman</button>
+        </div>
+        <hr>
+        <table id="batsmanTable">
+            <thead>
+                <tr>
+                    <th>Batsman</th>
+                    <th>Runs</th>
+                    <th>Balls Faced</th>
+                    <th>Strike Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Batsman rows will be dynamically added here -->
+            </tbody>
+        </table>
+        <hr>
+        <div class="bowler-inputs">
+            <label for="bowlerName">Bowler Name:</label>
+            <input type="text" id="bowlerName">
+            <label for="bowlerRuns">Runs Conceded:</label>
+            <input type="number" id="bowlerRuns" min="0">
+            <label for="oversBowled">Overs Bowled:</label>
+            <input type="number" id="oversBowled" min="0" step="0.1">
+            <label for="wicketsTaken">Wickets Taken:</label>
+            <input type="number" id="wicketsTaken" min="0">
+            <button onclick="addBowler()">Add Bowler</button>
+        </div>
+        <hr>
+        <table id="bowlerTable">
+            <thead>
+                <tr>
+                    <th>Bowler</th>
+                    <th>Runs Conceded</th>
+                    <th>Overs Bowled</th>
+                    <th>Wickets Taken</th>
+                    <th>Economy Rate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Bowler rows will be dynamically added here -->
+            </tbody>
+        </table>
+        <div class="team-score">
+            <button onclick="updateTeamScore()">Update Team Score</button>
+            <p>Team Score: <span id="displayTeamScore">0</span> / <span id="displayWickets">0</span></p>
+        </div>
+        <div class="charts">
+            <canvas id="runsChart" width="400" height="200"></canvas>
+            <canvas id="wicketsChart" width="400" height="200"></canvas>
+        </div>
+        <div class="innings-switch" id="inningsSwitch">
+            <button onclick="switchInnings()">Switch Innings</button>
+        </div>
+    </div>
+
+    <!-- Add Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        let batsmen = [];
+        let bowlers = [];
+        let totalRuns = 0;
+        let totalWickets = 0;
+
+        function addBatsman() {
+            if (batsmen.length >= 10) {
+                alert('Maximum number of batsmen (10) reached.');
+                return;
+            }
+
+            const batsmanName = document.getElementById('batsmanName').value.trim();
+            const batsmanRuns = parseInt(document.getElementById('batsmanRuns').value);
+            const ballsFaced = parseInt(document.getElementById('ballsFaced').value);
+
+            if (batsmanName && !isNaN(batsmanRuns) && !isNaN(ballsFaced)) {
+                batsmen.push({ name: batsmanName, runs: batsmanRuns, balls: ballsFaced });
+                displayBatsmen();
+            } else {
+                alert('Please enter valid batsman details.');
+            }
+        }
+
+        function addBowler() {
+            const bowlerName = document.getElementById('bowlerName').value.trim();
+            const bowlerRuns = parseInt(document.getElementById('bowlerRuns').value);
+            const oversBowled = parseFloat(document.getElementById('oversBowled').value);
+            const wicketsTaken = parseInt(document.getElementById('wicketsTaken').value);
+
+            if (bowlerName && !isNaN(bowlerRuns) && !isNaN(oversBowled) && oversBowled > 0 && !isNaN(wicketsTaken)) {
+                bowlers.push({ name: bowlerName, runsConceded: bowlerRuns, oversBowled: oversBowled, wicketsTaken: wicketsTaken });
+                displayBowlers();
+            } else {
+                alert('Please enter valid bowler details.');
+            }
+        }
+
+        function updateTeamScore() {
+            totalRuns = 0;
+            totalWickets = 0;
+
+            batsmen.forEach(batsman => {
+                totalRuns += batsman.runs;
+            });
+
+            bowlers.forEach(bowler => {
+                totalWickets += bowler.wicketsTaken;
+            });
+
+            document.getElementById('displayTeamScore').textContent = totalRuns;
+            document.getElementById('displayWickets').textContent = totalWickets;
+
+            if (totalWickets === 10) {
+                document.getElementById('inningsSwitch').style.display = 'block';
+            }
+
+            displayHighestScorers();
+            updateCharts();
+        }
+
+        function switchInnings() {
+            batsmen = [];
+            bowlers = [];
+            totalRuns = 0;
+            totalWickets = 0;
+
+            displayBatsmen();
+            displayBowlers();
+
+            document.getElementById('displayTeamScore').textContent = '0';
+            document.getElementById('displayWickets').textContent = '0';
+            document.getElementById('inningsSwitch').style.display = 'none';
+
+            // Reset input fields
+            document.getElementById('battingTeam').value = '';
+            document.getElementById('fieldingTeam').value = '';
+            document.getElementById('batsmanName').value = '';
+            document.getElementById('batsmanRuns').value = '';
+            document.getElementById('ballsFaced').value = '';
+            document.getElementById('bowlerName').value = '';
+            document.getElementById('bowlerRuns').value = '';
+            document.getElementById('oversBowled').value = '';
+            document.getElementById('wicketsTaken').value = '';
+
+            alert('Second innings started!');
+        }
+
+        function calculateStrikeRate(runs, balls) {
+            return balls > 0 ? ((runs / balls) * 100).toFixed(2) : 0;
+        }
+
+        function calculateEconomyRate(runs, overs) {
+            return overs > 0 ? (runs / overs).toFixed(2) : 0;
+        }
+
+        function displayBatsmen() {
+            const batsmanTableBody = document.getElementById('batsmanTable').getElementsByTagName('tbody')[0];
+            batsmanTableBody.innerHTML = '';
+
+            batsmen.forEach(batsman => {
+                const row = batsmanTableBody.insertRow();
+                row.innerHTML = `
+                    <td>${batsman.name}</td>
+                    <td>${batsman.runs}</td>
+                    <td>${batsman.balls}</td>
+                    <td>${calculateStrikeRate(batsman.runs, batsman.balls)}</td>
+                `;
+            });
+        }
+
+        function displayBowlers() {
+            const bowlerTableBody = document.getElementById('bowlerTable').getElementsByTagName('tbody')[0];
+            bowlerTableBody.innerHTML = '';
+
+            bowlers.forEach(bowler => {
+                const row = bowlerTableBody.insertRow();
+                row.innerHTML = `
+                    <td>${bowler.name}</td>
+                    <td>${bowler.runsConceded}</td>
+                    <td>${bowler.oversBowled}</td>
+                    <td>${bowler.wicketsTaken}</td>
+                    <td>${calculateEconomyRate(bowler.runsConceded, bowler.oversBowled)}</td>
+                `;
+            });
+        }
+
+        function displayHighestScorers() {
+            if (batsmen.length === 0 || bowlers.length === 0) return;
+
+            const highestScorer = batsmen.reduce((prev, curr) => (prev.runs > curr.runs ? prev : curr));
+            const highestWicketTaker = bowlers.reduce((prev, curr) => (prev.wicketsTaken > curr.wicketsTaken ? prev : curr));
+
+            alert(`Highest Scorer: ${highestScorer.name} - ${highestScorer.runs} runs\nHighest Wicket Taker: ${highestWicketTaker.name} - ${highestWicketTaker.wicketsTaken} wickets`);
+        }
+
+        function updateCharts() {
+            const runsData = batsmen.map(batsman => batsman.runs);
+            const runsLabels = batsmen.map(batsman => batsman.name);
+
+            const wicketsData = bowlers.map(bowler => bowler.wicketsTaken);
+            const wicketsLabels = bowlers.map(bowler => bowler.name);
+
+            // Runs Chart
+            new Chart(document.getElementById('runsChart'), {
+                type: 'bar',
+                data: {
+                    labels: runsLabels,
+                    datasets: [{
+                        label: 'Runs Scored',
+                        data: runsData,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Wickets Chart
+            new Chart(document.getElementById('wicketsChart'), {
+                type: 'bar',
+                data: {
+                    labels: wicketsLabels,
+                    datasets: [{
+                        label: 'Wickets Taken',
+                        data: wicketsData,
+                        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
